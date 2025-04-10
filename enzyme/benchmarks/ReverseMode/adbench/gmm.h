@@ -219,7 +219,7 @@ int main(const int argc, const char* argv[]) {
       getTests(paths, "data/10k", "10k/");
     }
 
-    getTests(paths, "data/1k", "1k/");
+    //getTests(paths, "data/1k", "1k/");
     if (std::getenv("BENCH_LARGE")) {
       getTests(paths, "data/2.5k", "2.5k/");
       getTests(paths, "data/10k", "10k/");
@@ -274,7 +274,7 @@ int main(const int argc, const char* argv[]) {
 
     struct GMMOutput result = { 0, std::vector<double>(Jcols) };
 
-    //if (0) {
+    if (0) {
       try {
         struct timeval start, end;
         gettimeofday(&start, NULL);
@@ -294,7 +294,7 @@ int main(const int argc, const char* argv[]) {
       } catch (std::bad_alloc) {
         printf("Adept combined 88888888 ooms\n");
       }
-    //}
+    }
     }
 
     for (size_t i = 0; i < 5; i++)
@@ -415,6 +415,7 @@ int main(const int argc, const char* argv[]) {
       test_suite["tools"].push_back(enzyme);
     }
     }
+
 
     {
 

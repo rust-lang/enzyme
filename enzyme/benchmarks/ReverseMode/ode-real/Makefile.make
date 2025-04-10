@@ -1,4 +1,4 @@
-# RUN: cd %S && LD_LIBRARY_PATH="%bldpath:$LD_LIBRARY_PATH" PTR="%ptr" BENCH="%bench" BENCHLINK="%blink" LOAD="%loadEnzyme" ENZYME="%enzyme" make -B ode-raw.ll ode-opt.ll results.json VERBOSE=1 -f %s
+# RUN: cd %S && LD_LIBRARY_PATH="%bldpath:$LD_LIBRARY_PATH" PTR="%ptr" BENCH="%bench" BENCHLINK="%blink" LOAD="%loadEnzyme" LOADCLANG="%loadClangEnzyme" ENZYME="%enzyme" make -B results.json VERBOSE=1 -f %s
 
 .PHONY: clean
 
@@ -11,17 +11,8 @@ clean:
 $(dir)/benchmarks/ReverseMode/ode-real/target/release/libode.a: src/lib.rs Cargo.toml
 	RUSTFLAGS="-Z autodiff=Enable,LooseTypes" cargo +enzyme rustc --release --lib --crate-type=staticlib
 
-%-unopt.ll: %.cpp
-	clang++ $(BENCH) $(PTR) $^ -O2 -fno-use-cxa-atexit -fno-vectorize -fno-slp-vectorize -ffast-math -fno-unroll-loops -o $@ -S -emit-llvm
-
-%-raw.ll: %-unopt.ll
-	opt $^ $(LOAD) $(ENZYME) -o $@ -S
-
-%-opt.ll: %-raw.ll
-	opt $^ -o $@ -S
-
-ode.o: ode-opt.ll $(dir)/benchmarks/ReverseMode/ode-real/target/release/libode.a
-	clang++ $(BENCH) -O2 $^ -o $@ $(BENCHLINK)
+ode.o: ode.cpp $(dir)/benchmarks/ReverseMode/ode-real/target/release/libode.a
+	/home/manuel/prog/rust-middle/build/x86_64-unknown-linux-gnu/llvm/build/bin/clang++ $(LOADCLANG) $(BENCH) -O3 -fno-math-errno $^ $(BENCHLINK) -lm -o $@
 
 results.json: ode.o
 	numactl -C 1 ./$^ 1000 | tee $@
