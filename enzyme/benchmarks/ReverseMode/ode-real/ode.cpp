@@ -708,7 +708,7 @@ int main(int argc, char** argv) {
     rust_lorenz_safe(x, x2, t);
 
     gettimeofday(&end, NULL);
-    printf("Rust fwd safe %0.6f res=%f\n\n", tdiff(&start, &end), x2[0]);
+    printf("Rust fwd safe %0.6f res=%f\n", tdiff(&start, &end), x2[0]);
   }
 
   {

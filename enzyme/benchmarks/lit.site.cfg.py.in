@@ -97,7 +97,7 @@ newPM = (' -fpass-plugin=@ENZYME_BINARY_DIR@/Enzyme/ClangEnzyme-' + config.llvm_
           + ' -Xclang -load -Xclang @ENZYME_BINARY_DIR@/Enzyme/ClangEnzyme-' + config.llvm_ver + config.llvm_shlib_ext)
 
 config.substitutions.append(('%newLoadClangEnzyme', newPM))
-config.substitutions.append(('%LoadClangEnzyme', newPM))
+config.substitutions.append(('%loadClangEnzyme', newPM))
 
 # Let the main config do the real work.
 lit_config.load_config(config, "@ENZYME_SOURCE_DIR@/benchmarks/lit.cfg.py")
