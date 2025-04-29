@@ -286,7 +286,7 @@ include_directories("${CMAKE_CURRENT_BINARY_DIR}/include")
 
 add_subdirectory(tools)
 add_subdirectory(Enzyme)
-add_subdirectory(BCLoad)
+#add_subdirectory(BCLoad)
 if (ENZYME_ENABLE_PLUGINS)
     add_subdirectory(test)
 endif()
