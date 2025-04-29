@@ -63,6 +63,7 @@ endif()
 set(LLVM_DIR "${LLVM_ABSOLUTE_DIR}" CACHE FILEPATH "b" FORCE)
 
 if (EXISTS "${LLVM_DIR}/lib/cmake/llvm/LLVMConfig.cmake")
+  message(STATUS "Overwriting LLVM_DIR")
   set(LLVM_DIR "${LLVM_DIR}/lib/cmake/llvm")
 endif()
 
@@ -71,6 +72,9 @@ message("LLVM ABS DIR " ${LLVM_DIR})
 message("CMAKE_PREFIX_PATH " ${CMAKE_PREFIX_PATH})
 
 find_package(LLVM REQUIRED CONFIG)
+
+message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
+message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 
 if (NOT LLVM_ENABLE_PLUGINS)
   message("LLVM_ENABLE_PLUGINS OFF")
