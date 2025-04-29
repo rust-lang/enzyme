@@ -149,6 +149,7 @@ if (${ENZYME_EXTERNAL_SHARED_LIB})
     # Add -L LLVM_DIR to the linker flags, since just -lLLVM is too unreliable.
     set_target_properties(Enzyme-${LLVM_VERSION_MAJOR} PROPERTIES
         LINK_FLAGS "-L${LLVM_DIR}/../..")
+    llvm_map_components_to_libnames(llvm_libs support core irreader)
     target_link_libraries(Enzyme-${LLVM_VERSION_MAJOR} ${llvm_libs})
     install(TARGETS Enzyme-${LLVM_VERSION_MAJOR}
         EXPORT EnzymeTargets
