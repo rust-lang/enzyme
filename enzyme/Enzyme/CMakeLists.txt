@@ -132,6 +132,7 @@ if (${ENZYME_STATIC_LIB})
 endif()
 
 if (${ENZYME_EXTERNAL_SHARED_LIB})
+    message("In the ENZYME_EXTERNAL_SHARED_LIB branch")
     add_library( Enzyme-${LLVM_VERSION_MAJOR}
         SHARED
         ${ENZYME_SRC}
@@ -148,7 +149,7 @@ if (${ENZYME_EXTERNAL_SHARED_LIB})
     # Add -L LLVM_DIR to the linker flags, since just -lLLVM is too unreliable.
     set_target_properties(Enzyme-${LLVM_VERSION_MAJOR} PROPERTIES
         LINK_FLAGS "-L${LLVM_DIR}/../..")
-    target_link_libraries(Enzyme-${LLVM_VERSION_MAJOR} LLVM)
+    target_link_libraries(Enzyme-${LLVM_VERSION_MAJOR} ${llvm_libs})
     install(TARGETS Enzyme-${LLVM_VERSION_MAJOR}
         EXPORT EnzymeTargets
         LIBRARY DESTINATION lib COMPONENT shlib
