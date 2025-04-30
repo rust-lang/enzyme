@@ -151,6 +151,9 @@ if (${ENZYME_EXTERNAL_SHARED_LIB})
         LINK_FLAGS "-L${LLVM_DIR}/../..")
     llvm_map_components_to_libnames(llvm_libs support core irreader)
     target_link_libraries(Enzyme-${LLVM_VERSION_MAJOR} ${llvm_libs})
+    target_link_libraries(Enzyme-${LLVM_VERSION_MAJOR} ${support})
+    target_link_libraries(Enzyme-${LLVM_VERSION_MAJOR} ${core})
+    target_link_libraries(Enzyme-${LLVM_VERSION_MAJOR} ${irreader})
     install(TARGETS Enzyme-${LLVM_VERSION_MAJOR}
         EXPORT EnzymeTargets
         LIBRARY DESTINATION lib COMPONENT shlib
