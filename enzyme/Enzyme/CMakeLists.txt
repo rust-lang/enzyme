@@ -160,11 +160,12 @@ if (${ENZYME_EXTERNAL_SHARED_LIB})
     add_dependencies(Enzyme-${LLVM_VERSION_MAJOR} BlasTAIncGen)
     add_dependencies(Enzyme-${LLVM_VERSION_MAJOR} BlasDiffUseIncGen)
     # Add -L LLVM_DIR to the linker flags, since just -lLLVM is too unreliable.
-    #set_target_properties(Enzyme-${LLVM_VERSION_MAJOR} PROPERTIES
-    #    LINK_FLAGS "-L${LLVM_DIR}/../..")
-    #llvm_map_components_to_libnames(llvm_libs all)
-    #target_link_libraries(Enzyme-${LLVM_VERSION_MAJOR} ${llvm_libs})
-    llvm_config(Enzyme-${LLVM_VERSION_MAJOR} all)
+    set_target_properties(Enzyme-${LLVM_VERSION_MAJOR} PROPERTIES
+        LINK_FLAGS "-L `${LLVM_TOOLS_BINARY_DIR}/llvm-config --libdir` `${LLVM_TOOLS_BINARY_DIR}/llvm-config --libs --ldflags`")
+    llvm_map_components_to_libnames(llvm_libs all)
+    target_link_libraries(Enzyme-${LLVM_VERSION_MAJOR} ${llvm_libs})
+    #llvm_config(Enzyme-${LLVM_VERSION_MAJOR} all)
+
     install(TARGETS Enzyme-${LLVM_VERSION_MAJOR}
         EXPORT EnzymeTargets
         LIBRARY DESTINATION lib COMPONENT shlib

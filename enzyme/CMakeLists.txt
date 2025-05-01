@@ -237,6 +237,7 @@ add_definitions(${LLVM_DEFINITIONS})
 include_directories(${LLVM_INCLUDE_DIRS})
 message("LLVM_INSTALL_PREFIX: ${LLVM_INSTALL_PREFIX}")
 message("LLVM_INCLUDE_DIRS: ${LLVM_INCLUDE_DIRS}")
+message("LLVM tools: ${LLVM_TOOLS_BINARY_DIR}")
 message("found LLVM definitions " ${LLVM_DEFINITIONS})
 message("found LLVM version " ${LLVM_VERSION_MAJOR})
 
