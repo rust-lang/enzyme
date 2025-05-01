@@ -160,13 +160,10 @@ if (${ENZYME_EXTERNAL_SHARED_LIB})
     add_dependencies(Enzyme-${LLVM_VERSION_MAJOR} BlasTAIncGen)
     add_dependencies(Enzyme-${LLVM_VERSION_MAJOR} BlasDiffUseIncGen)
     # Add -L LLVM_DIR to the linker flags, since just -lLLVM is too unreliable.
-    set_target_properties(Enzyme-${LLVM_VERSION_MAJOR} PROPERTIES
-        LINK_FLAGS "-L${LLVM_DIR}/../..")
-    llvm_map_components_to_libnames(llvm_libs support core irreader)
+    #set_target_properties(Enzyme-${LLVM_VERSION_MAJOR} PROPERTIES
+    #    LINK_FLAGS "-L${LLVM_DIR}/../..")
+    llvm_map_components_to_libnames(llvm_libs all)
     target_link_libraries(Enzyme-${LLVM_VERSION_MAJOR} ${llvm_libs})
-    target_link_libraries(Enzyme-${LLVM_VERSION_MAJOR} ${support})
-    target_link_libraries(Enzyme-${LLVM_VERSION_MAJOR} ${core})
-    target_link_libraries(Enzyme-${LLVM_VERSION_MAJOR} ${irreader})
     install(TARGETS Enzyme-${LLVM_VERSION_MAJOR}
         EXPORT EnzymeTargets
         LIBRARY DESTINATION lib COMPONENT shlib
