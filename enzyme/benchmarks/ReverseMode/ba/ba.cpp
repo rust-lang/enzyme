@@ -115,6 +115,15 @@ void radial_distort(double const* rad_params, double *proj)
     proj[1] = proj[1] * L;
 }
 
+void radial_distort_restrict(double const *__restrict rad_params, double *__restrict proj)
+{
+    double rsq, L;
+    rsq = sqsum(2, proj);
+    L = 1. + rad_params[0] * rsq + rad_params[1] * rsq * rsq;
+    proj[0] = proj[0] * L;
+    proj[1] = proj[1] * L;
+}
+
 void project_restrict(double const *__restrict cam, double const *__restrict X,
                       double *__restrict proj) {
     double const* C = &cam[3];
@@ -129,7 +138,7 @@ void project_restrict(double const *__restrict cam, double const *__restrict X,
     proj[0] = Xcam[0] / Xcam[2];
     proj[1] = Xcam[1] / Xcam[2];
 
-    radial_distort(&cam[9], proj);
+    radial_distort_restrict(&cam[9], proj);
 
     proj[0] = proj[0] * cam[6] + cam[7];
     proj[1] = proj[1] * cam[6] + cam[8];
