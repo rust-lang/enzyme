@@ -1,5 +1,6 @@
 use std::slice;
 use std::autodiff::autodiff;
+use std::hint::assert_unchecked;
 
 // Sigmoid on scalar
 fn sigmoid(x: f64) -> f64 {
@@ -32,11 +33,11 @@ fn lstm_model(
     let (a, b) = gates.split_at_mut(2 * hsize);
     let ((forget, ingate), (outgate, change)) = (a.split_at_mut(hsize), b.split_at_mut(hsize));
 
-    //debug_assert_eq!(weight.len(), 4 * hsize);
-    //debug_assert_eq!(bias.len(), 4 * hsize);
-    //debug_assert_eq!(hidden.len(), hsize);
-    //debug_assert!(cell.len() >= hsize);
-    //debug_assert!(input.len() >= hsize);
+    unsafe {assert_unchecked(weight.len()== 4 * hsize)};
+    unsafe {assert_unchecked(bias.len()== 4 * hsize)};
+    unsafe {assert_unchecked(hidden.len()== hsize)};
+    unsafe {assert_unchecked(cell.len() >= hsize)};
+    unsafe {assert_unchecked(input.len() >= hsize)};
     // caching input
     for i in 0..hsize {
         forget[i] = sigmoid(input[i] * weight[i] + bias[i]);
@@ -131,7 +132,7 @@ pub(crate) fn lstm_objective(
     let mut ypred = vec![0.0; b];
     let mut ynorm = vec![0.0; b];
 
-    //debug_assert!(b > 0);
+    unsafe{assert_unchecked(b > 0)};
 
     let limit = (c - 1) * b;
     for j in 0..(c - 1) {
@@ -156,15 +157,18 @@ pub(crate) fn lstm_objective(
 
 #[no_mangle]
 pub extern "C" fn rust_lstm_objective(
-    l: usize,
-    c: usize,
-    b: usize,
+    l: i32,
+    c: i32,
+    b: i32,
     main_params: *const f64,
     extra_params: *const f64,
     state: *mut f64,
     sequence: *const f64,
     loss: *mut f64,
 ) {
+    let l = l as usize;
+    let c = c as usize;
+    let b = b as usize;
     let (main_params, extra_params, state, sequence) = unsafe {
         (
             slice::from_raw_parts(main_params, 2 * l * 4 * b),
@@ -190,9 +194,9 @@ pub extern "C" fn rust_lstm_objective(
 
 #[no_mangle]
 pub extern "C" fn rust_dlstm_objective(
-    l: usize,
-    c: usize,
-    b: usize,
+    l: i32,
+    c: i32,
+    b: i32,
     main_params: *const f64,
     d_main_params: *mut f64,
     extra_params: *const f64,
@@ -202,6 +206,9 @@ pub extern "C" fn rust_dlstm_objective(
     res: *mut f64,
     d_res: *mut f64,
 ) {
+    let l = l as usize;
+    let c = c as usize;
+    let b = b as usize;
     let (main_params, d_main_params, extra_params, d_extra_params, state, sequence) = unsafe {
         (
             slice::from_raw_parts(main_params, 2 * l * 4 * b),

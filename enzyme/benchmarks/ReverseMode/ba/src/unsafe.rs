@@ -110,9 +110,9 @@ pub unsafe fn compute_reproj_error(
 
 #[no_mangle]
 unsafe extern "C" fn rust2_unsafe_ba_objective(
-    n: usize,
-    m: usize,
-    p: usize,
+    n: i32,
+    m: i32,
+    p: i32,
     cams: *const f64,
     x: *const f64,
     w: *const f64,
@@ -121,6 +121,9 @@ unsafe extern "C" fn rust2_unsafe_ba_objective(
     reproj_err: *mut f64,
     w_err: *mut f64,
 ) {
+    let n = n as usize;
+    let m = m as usize;
+    let p = p as usize;
     for i in 0..p {
         let cam_idx = *obs.add(i * 2 + 0) as usize;
         let pt_idx = *obs.add(i * 2 + 1) as usize;
