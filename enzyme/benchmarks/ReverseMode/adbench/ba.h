@@ -427,7 +427,7 @@ int main(const int argc, const char* argv[]) {
     }
     }
 
-    {
+    for (int j=0;j<5;j++) {
 
     struct BAInput input;
     read_ba_instance("data/" + path, input.n, input.m, input.p, input.cams,
@@ -659,7 +659,7 @@ int main(const int argc, const char* argv[]) {
     }
     }
 
-    {
+    for(int j=0;j<5;j++){
 
     struct BAInput input;
     read_ba_instance("data/" + path, input.n, input.m, input.p, input.cams,

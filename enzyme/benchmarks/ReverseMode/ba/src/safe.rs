@@ -182,9 +182,9 @@ fn rust_ba_objective(
 
 #[no_mangle]
 extern "C" fn rust2_ba_objective(
-    n: usize,
-    m: usize,
-    p: usize,
+    n: i32,
+    m: i32,
+    p: i32,
     cams: *const f64,
     x: *const f64,
     w: *const f64,
@@ -193,6 +193,9 @@ extern "C" fn rust2_ba_objective(
     reproj_err: *mut f64,
     w_err: *mut f64,
 ) {
+    let n = n as usize;
+    let m = m as usize;
+    let p = p as usize;
     let cams = unsafe { std::slice::from_raw_parts(cams, n * 11) };
     let x = unsafe { std::slice::from_raw_parts(x, m * 3) };
     let w = unsafe { std::slice::from_raw_parts(w, p) };
