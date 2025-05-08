@@ -268,7 +268,7 @@ int main(const int argc, const char* argv[]) {
 
     struct GMMOutput result = { 0, std::vector<double>(Jcols) };
 
-    if (0) {
+    if (1) {
       try {
         struct timeval start, end;
         gettimeofday(&start, NULL);
@@ -350,7 +350,7 @@ int main(const int argc, const char* argv[]) {
       test_suite["tools"].push_back(enzyme);
     }
     }
-    
+
     {
 
     struct GMMInput input;

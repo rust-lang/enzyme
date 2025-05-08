@@ -245,7 +245,7 @@ int main(const int argc, const char* argv[]) {
 
     std::vector<std::string> paths = { "lstm_l2_c1024.txt", "lstm_l4_c1024.txt", "lstm_l2_c4096.txt", "lstm_l4_c4096.txt" };
     //std::vector<std::string> paths = { "lstm_l4_c4096.txt" };
-    
+
     std::ofstream jsonfile("results.json", std::ofstream::trunc);
     json test_results;
 
@@ -289,7 +289,7 @@ int main(const int argc, const char* argv[]) {
 
     }
 
-    if (0){
+    if (1){
 
      struct LSTMInput input = {};
 
@@ -385,7 +385,7 @@ int main(const int argc, const char* argv[]) {
         enzyme["result"].push_back(result.gradient[i]);
        }
        test_suite["tools"].push_back(enzyme);
-       
+
        printf("\n");
     }
     }
@@ -418,7 +418,7 @@ int main(const int argc, const char* argv[]) {
          enzyme["result"].push_back(result.gradient[i]);
        }
        test_suite["tools"].push_back(enzyme);
-       
+
        printf("\n");
     }
 

@@ -20,3 +20,5 @@ strip = true
 
 [profile.dev]
 lto = "fat"
+
+[workspace]
