@@ -21,3 +21,5 @@ lto = "fat"
 
 [dependencies]
 libm = { version = "0.2.8", optional = true }
+
+[workspace]

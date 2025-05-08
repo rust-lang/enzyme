@@ -19,9 +19,9 @@ fn lgamma(x: f64) -> f64 {
 
 #[no_mangle]
 pub extern "C" fn rust_dgmm_objective(
-    d: i32,
-    k: i32,
-    n: i32,
+    d: usize,
+    k: usize,
+    n: usize,
     alphas: *const f64,
     dalphas: *mut f64,
     means: *const f64,
@@ -33,9 +33,6 @@ pub extern "C" fn rust_dgmm_objective(
     err: *mut f64,
     derr: *mut f64,
 ) {
-    let k = k as usize;
-    let n = n as usize;
-    let d = d as usize;
     let alphas = unsafe { std::slice::from_raw_parts(alphas, k) };
     let means = unsafe { std::slice::from_raw_parts(means, k * d) };
     let icf = unsafe { std::slice::from_raw_parts(icf, k * d * (d + 1) / 2) };
@@ -85,9 +82,9 @@ pub extern "C" fn rust_dgmm_objective(
 
 #[no_mangle]
 pub extern "C" fn rust_gmm_objective(
-    d: i32,
-    k: i32,
-    n: i32,
+    d: usize,
+    k: usize,
+    n: usize,
     alphas: *const f64,
     means: *const f64,
     icf: *const f64,
@@ -95,9 +92,6 @@ pub extern "C" fn rust_gmm_objective(
     wishart: *const Wishart,
     err: *mut f64,
 ) {
-    let k = k as usize;
-    let n = n as usize;
-    let d = d as usize;
     let alphas = unsafe { std::slice::from_raw_parts(alphas, k) };
     let means = unsafe { std::slice::from_raw_parts(means, k * d) };
     let icf = unsafe { std::slice::from_raw_parts(icf, k * d * (d + 1) / 2) };
