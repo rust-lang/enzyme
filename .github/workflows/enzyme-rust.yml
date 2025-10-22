@@ -1,0 +1,49 @@
+name: Rust Enzyme CI
+
+on:
+  push:
+    branches:
+    - main
+  pull_request:
+    branches:
+    - main
+  merge_group:
+
+jobs:
+  build:
+    name: Enzyme CI Rust ${{ matrix.os }} - ${{ matrix.rust-version }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macOS-latest
+        rust-version:
+          - master
+          - b2ee1b333aea9951c3eefa4967098cc763de59ca
+    steps:
+    - name: Clone rust
+      run: |
+        git clone --depth=1 https://github.com/rust-lang/rust .
+    - name: Adjust git settings
+      run: |
+        git config --global user.email "ci@example.org"
+        git config --global user.name  "CI"
+    - name: Init enzyme submodule
+      run: |
+        git submodule update --init src/tools/enzyme
+    - name: Update enzyme submodule
+      run: |
+        pushd src/tools/enzyme || exit 1
+        git fetch origin $GITHUB_SHA
+        git checkout $GITHUB_SHA
+        popd || exit 1
+
+        git add src/tools/enzyme && git commit -m "Set Enzyme version"
+    - name: Configure
+      run: |
+        ./configure --release-channel=nightly --enable-llvm-enzyme --enable-llvm-assertions --enable-option-checking --disable-docs --set llvm.download-ci-llvm=true
+    - name: Build
+      run: |
+        ./x build --stage 1 library
