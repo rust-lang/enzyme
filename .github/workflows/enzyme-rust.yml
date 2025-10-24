@@ -44,8 +44,6 @@ jobs:
     - name: Configure
       run: |
         ./configure --release-channel=nightly --enable-llvm-enzyme --enable-llvm-assertions --enable-option-checking --disable-docs --set llvm.download-ci-llvm=true
-    - name: Setup tmate session
-      uses: mxschmitt/action-tmate@v3
     - name: Build
       run: |
         ./x build --stage 1 library
