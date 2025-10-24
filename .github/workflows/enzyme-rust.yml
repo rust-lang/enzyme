@@ -18,9 +18,9 @@ jobs:
       matrix:
         os:
           - ubuntu-latest
-          - macOS-latest
+          #- macOS-latest # broken: https://github.com/rust-lang/enzyme/actions/runs/18791780110/job/53623553780?pr=30
         rust-version:
-          #- master
+          - master
           - b2ee1b333aea9951c3eefa4967098cc763de59ca
     steps:
       - name: Clone rust
@@ -58,7 +58,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-ccache-${{ steps['llvm-commit'].outputs.commit_hash }}
             ${{ runner.os }}-ccache-
-            ${{ runner.os }}-primes
 
       # Now we get to the actual meat. Initialize enzyme at $GITHUB_SHA to ensure we
       # actually test the right commit :)
