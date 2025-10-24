@@ -45,7 +45,7 @@ jobs:
         run: |
           COMMIT_HASH="$(git ls-tree --object-only HEAD src/llvm-project)"
           echo "LLVM should be on commit: '$COMMIT_HASH'"
-          echo "::set-output name=commit_hash::$COMMIT_HASH"
+          echo "commit_hash=$COMMIT_HASH" >> $GITHUB_OUTPUT
       - name: Cache ccache
         id: cache-ccache
         uses: actions/cache@v4
