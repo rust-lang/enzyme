@@ -1,0 +1,91 @@
+name: Rust Enzyme CI
+
+on:
+  push:
+    branches:
+    - main
+  pull_request:
+    branches:
+    - main
+  merge_group:
+
+jobs:
+  build:
+    name: Enzyme CI Rust ${{ matrix.os }} - ${{ matrix.rust-version }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          #- macOS-latest # broken: https://github.com/rust-lang/enzyme/actions/runs/18791780110/job/53623553780?pr=30
+        rust-version:
+          - master
+          - b2ee1b333aea9951c3eefa4967098cc763de59ca
+    steps:
+      - name: Clone rust
+        run: |
+          git clone --depth=1 https://github.com/rust-lang/rust .
+      - name: Adjust git settings
+        run: |
+          git config --global user.email "ci@example.org"
+          git config --global user.name  "CI"
+
+      # Infra: Setup caching using ccache
+      - name: Install ccache (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt update && sudo apt install -y ccache
+      - name: Install ccache (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install ccache
+      - name: Get LLVM project commit SHA for use as cache key
+        id: llvm-commit
+        run: |
+          COMMIT_HASH="$(git ls-tree --object-only HEAD src/llvm-project)"
+          echo "LLVM should be on commit: '$COMMIT_HASH'"
+          echo "commit_hash=$COMMIT_HASH" >> $GITHUB_OUTPUT
+      - name: Cache ccache
+        id: cache-ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ccache
+          key: ${{ runner.os }}-ccache-${{ steps['llvm-commit'].outputs.commit_hash }}
+          # We fall back to *any* cache. It is ccache, it can handle invalidation
+          # and eviction on its own. TODO: We might want to limit its size / use
+          # evict-older-than?
+          restore-keys: |
+            ${{ runner.os }}-ccache-${{ steps['llvm-commit'].outputs.commit_hash }}
+            ${{ runner.os }}-ccache-
+
+      # Now we get to the actual meat. Initialize enzyme at $GITHUB_SHA to ensure we
+      # actually test the right commit :)
+      - name: Init enzyme submodule
+        run: |
+          git submodule update --init src/tools/enzyme
+      - name: Update enzyme submodule
+        run: |
+          pushd src/tools/enzyme || exit 1
+          git fetch origin $GITHUB_SHA
+          git checkout $GITHUB_SHA
+          popd || exit 1
+
+          git add src/tools/enzyme && git commit -m "Set Enzyme version"
+
+      # And now we build!
+      - name: Configure
+        run: |
+          ./configure --release-channel=nightly --enable-llvm-enzyme --enable-llvm-assertions --enable-option-checking --disable-docs --enable-ccache
+      - name: Inspect ccache
+        run: |
+          ccache --show-config
+          ccache --show-stats
+          ccache --zero-stats  # rebaseline
+      - name: Build
+        run: |
+          ./x build --stage 1 library
+      - name: Inspect ccache
+        run: |
+          ccache --show-config
+          ccache --show-stats
