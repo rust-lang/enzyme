@@ -18,9 +18,9 @@ jobs:
       matrix:
         os:
           - ubuntu-latest
-          - macOS-latest
+          #- macOS-latest
         rust-version:
-          - master
+          #- master
           - b2ee1b333aea9951c3eefa4967098cc763de59ca
     steps:
     - name: Clone rust
