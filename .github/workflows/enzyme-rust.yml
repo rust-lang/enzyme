@@ -43,7 +43,25 @@ jobs:
         git add src/tools/enzyme && git commit -m "Set Enzyme version"
     - name: Configure
       run: |
-        ./configure --release-channel=nightly --enable-llvm-enzyme --enable-llvm-assertions --enable-option-checking --disable-docs --set llvm.download-ci-llvm=true
+        ./configure --release-channel=nightly --enable-llvm-enzyme --enable-llvm-assertions --enable-option-checking --disable-docs --enable-ccache
+    - name: Cache ccache
+      id: cache-ccache
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/ccache
+        key: ${{ runner.os }}-primes
+    - name: Setup ccache
+      run: |
+        sudo apt update && sudo apt install -y ccache
+    - name: Inspect ccache
+      run: |
+        ccache --show-config
+        ccache --show-stats
+        ccache --zero-stats
     - name: Build
       run: |
         ./x build --stage 1 library
+    - name: Inspect ccache
+      run: |
+        ccache --show-config
+        ccache --show-stats
