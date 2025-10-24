@@ -32,9 +32,14 @@ jobs:
           git config --global user.name  "CI"
 
       # Infra: Setup caching using ccache
-      - name: Install ccache
+      - name: Install ccache (Linux)
+        if: runner.os == 'Linux'
         run: |
           sudo apt update && sudo apt install -y ccache
+      - name: Install ccache (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install ccache
       - name: Get LLVM project commit SHA for use as cache key
         id: llvm-commit
         run: |
