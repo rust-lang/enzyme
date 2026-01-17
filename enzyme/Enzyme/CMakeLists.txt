@@ -147,6 +147,8 @@ if (${ENZYME_EXTERNAL_SHARED_LIB})
     add_dependencies(Enzyme-${LLVM_VERSION_MAJOR} BlasDiffUseIncGen)
 
     if (APPLE)
+        # Use dynamic lookup to prevent Enzyme from embedding its own copy of LLVM on macOS.
+        # rustc already embeds LLVM and having two copies can cause autodiff to hang.
         target_link_options(Enzyme-${LLVM_VERSION_MAJOR} PRIVATE
             "-Wl,-flat_namespace"
             "-Wl,-undefined,dynamic_lookup")
