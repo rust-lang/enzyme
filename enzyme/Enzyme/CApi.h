@@ -98,6 +98,12 @@ void EnzymeTypeTreeShiftIndiciesEq(CTypeTreeRef dst, const char *datalayout,
                                    uint64_t addOffset);
 void EnzymeTypeTreeInsertEq(CTypeTreeRef dst, const int64_t *indices,
                             size_t len, CConcreteType ct, LLVMContextRef ctx);
+/// Insert a compact strided range. `indices[rangePos]` is the start offset;
+/// the range covers start + k*stride for k in 0..count.
+void EnzymeTypeTreeInsertRangeEq(CTypeTreeRef dst, const int64_t *indices,
+                                 size_t len, size_t rangePos, int64_t stride,
+                                 int64_t count, CConcreteType ct,
+                                 LLVMContextRef ctx);
 const char *EnzymeTypeTreeToString(CTypeTreeRef src);
 void EnzymeTypeTreeToStringFree(const char *cstr);
 

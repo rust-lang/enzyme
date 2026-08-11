@@ -33,6 +33,7 @@
 
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
+#include <algorithm>
 #include <map>
 #include <set>
 #include <string>
@@ -61,6 +62,69 @@ static inline std::string to_string(const std::vector<int> x) {
   return out;
 }
 
+/// Compact strided byte-offset range for homogeneous array regions.
+///
+/// Wire form uses `start+stride*count` in place of a single index component,
+/// e.g. `{[-1,8+4*1000]:Float@float}` means floats at bytes
+/// `8 + 4*k` for `k in 0..1000` after one pointer dereference. This avoids
+/// materializing `count` map keys and survives `MaxTypeOffset`, which would
+/// otherwise drop dense offsets above the analysis cap.
+struct StridedTypeRange {
+  std::vector<int> Indices; // Indices[RangePos] holds the start offset
+  size_t RangePos = 0;
+  int Stride = 0;
+  int Count = 0;
+  ConcreteType CT = BaseType::Unknown;
+
+  int start() const { return Indices[RangePos]; }
+  int last() const { return start() + Stride * (Count - 1); }
+
+  bool offsetInRange(int idx) const {
+    if (idx < start() || Stride <= 0 || Count <= 0)
+      return false;
+    int delta = idx - start();
+    if (delta % Stride != 0)
+      return false;
+    int k = delta / Stride;
+    return k >= 0 && k < Count;
+  }
+
+  /// True if `Seq` equals `Indices` on non-range positions and lands inside
+  /// the strided span at `RangePos`.
+  bool matches(const std::vector<int> &Seq) const {
+    if (Seq.size() != Indices.size())
+      return false;
+    for (size_t i = 0, e = Seq.size(); i < e; ++i) {
+      if (i == RangePos) {
+        if (!offsetInRange(Seq[i]))
+          return false;
+      } else if (Indices[i] != Seq[i]) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  std::string indexString() const {
+    std::string out = "[";
+    for (unsigned i = 0; i < Indices.size(); ++i) {
+      if (i != 0)
+        out += ",";
+      if (i == RangePos) {
+        out += std::to_string(Indices[i]);
+        out += "+";
+        out += std::to_string(Stride);
+        out += "*";
+        out += std::to_string(Count);
+      } else {
+        out += std::to_string(Indices[i]);
+      }
+    }
+    out += "]";
+    return out;
+  }
+};
+
 class TypeTree;
 
 typedef std::shared_ptr<const TypeTree> TypeResult;
@@ -74,6 +138,8 @@ private:
   // mapping of known indices to type if one exists
   ConcreteTypeMapType mapping;
   std::vector<int> minIndices;
+  // Compact homogeneous array regions (see StridedTypeRange).
+  std::vector<StridedTypeRange> ranges;
 
 public:
   TypeTree() {}
@@ -99,6 +165,9 @@ public:
       str = str.substr(1);
 
       std::vector<int> idxs;
+      size_t rangePos = (size_t)-1;
+      int rangeStride = 0;
+      int rangeCount = 0;
       while (true) {
         while (str[0] == ' ')
           str = str.substr(1);
@@ -111,6 +180,25 @@ public:
         bool failed = str.consumeInteger(10, idx);
         (void)failed;
         assert(!failed);
+
+        // Optional compact range: start+stride*count
+        if (!str.empty() && str[0] == '+') {
+          str = str.substr(1);
+          int stride = 0;
+          int count = 0;
+          failed = str.consumeInteger(10, stride);
+          assert(!failed);
+          assert(!str.empty() && str[0] == '*');
+          str = str.substr(1);
+          failed = str.consumeInteger(10, count);
+          assert(!failed);
+          assert(rangePos == (size_t)-1 && "at most one ranged index");
+          assert(stride > 0 && count > 0);
+          rangePos = idxs.size();
+          rangeStride = stride;
+          rangeCount = count;
+        }
+
         idxs.push_back(idx);
 
         while (str[0] == ' ')
@@ -146,16 +234,38 @@ public:
       str = str.substr(endval);
 
       ConcreteType CT(tystr, ctx);
-      Result.mapping.emplace(idxs, CT);
-      if (Result.minIndices.size() < idxs.size()) {
-        for (size_t i = Result.minIndices.size(), end = idxs.size(); i < end;
-             ++i) {
-          Result.minIndices.push_back(idxs[i]);
+      if (rangePos != (size_t)-1) {
+        StridedTypeRange R;
+        R.Indices = idxs;
+        R.RangePos = rangePos;
+        R.Stride = rangeStride;
+        R.Count = rangeCount;
+        R.CT = CT;
+        Result.ranges.push_back(R);
+        int start = idxs[rangePos];
+        if (Result.minIndices.size() < idxs.size()) {
+          for (size_t i = Result.minIndices.size(), end = idxs.size(); i < end;
+               ++i) {
+            Result.minIndices.push_back(i == rangePos ? start : idxs[i]);
+          }
         }
-      }
-      for (size_t i = 0, end = idxs.size(); i < end; ++i) {
-        if (idxs[i] < Result.minIndices[i])
-          Result.minIndices[i] = idxs[i];
+        for (size_t i = 0, end = idxs.size(); i < end; ++i) {
+          int v = (i == rangePos) ? start : idxs[i];
+          if (v < Result.minIndices[i])
+            Result.minIndices[i] = v;
+        }
+      } else {
+        Result.mapping.emplace(idxs, CT);
+        if (Result.minIndices.size() < idxs.size()) {
+          for (size_t i = Result.minIndices.size(), end = idxs.size(); i < end;
+               ++i) {
+            Result.minIndices.push_back(idxs[i]);
+          }
+        }
+        for (size_t i = 0, end = idxs.size(); i < end; ++i) {
+          if (idxs[i] < Result.minIndices[i])
+            Result.minIndices[i] = idxs[i];
+        }
       }
 
       while (str[0] == ' ')
@@ -178,6 +288,10 @@ public:
     auto Found0 = mapping.find(Seq);
     if (Found0 != mapping.end())
       return Found0->second;
+    for (const auto &R : ranges) {
+      if (R.matches(Seq))
+        return R.CT;
+    }
     size_t Len = Seq.size();
     if (Len == 0)
       return BaseType::Unknown;
@@ -212,6 +326,26 @@ public:
         if (Found != mapping.end())
           return Found->second;
       }
+    }
+    // Check ranges against -1-generalized sequences as well: a query for a
+    // concrete offset should hit `[-1, start+stride*count]` ranges.
+    for (const auto &R : ranges) {
+      if (R.Indices.size() != Seq.size())
+        continue;
+      bool ok = true;
+      for (size_t j = 0; j < Seq.size(); ++j) {
+        if (j == R.RangePos) {
+          if (!R.offsetInRange(Seq[j])) {
+            ok = false;
+            break;
+          }
+        } else if (R.Indices[j] != Seq[j] && R.Indices[j] != -1) {
+          ok = false;
+          break;
+        }
+      }
+      if (ok)
+        return R.CT;
     }
     return BaseType::Unknown;
   }
@@ -426,8 +560,72 @@ public:
     return true;
   }
 
+  /// Insert a compact strided range. `Seq[RangePos]` is the start offset;
+  /// the range covers `start + k*Stride` for `k in 0..Count`.
+  /// Unlike `insert`, ranges are not subject to `MaxTypeOffset` pruning.
+  bool insertRange(const std::vector<int> Seq, size_t RangePos, int Stride,
+                   int Count, ConcreteType CT) {
+    assert(RangePos < Seq.size());
+    assert(Stride > 0);
+    assert(Count > 0);
+    if (CT == ConcreteType(BaseType::Unknown))
+      return false;
+    if (Count == 1) {
+      std::vector<int> single = Seq;
+      return insert(single, CT);
+    }
+    for (const auto &existing : ranges) {
+      if (existing.Indices == Seq && existing.RangePos == RangePos &&
+          existing.Stride == Stride && existing.Count == Count) {
+        if (existing.CT == CT)
+          return false;
+        llvm::errs() << "inserting conflicting range into : " << str()
+                     << " with " << to_string(Seq) << " stride=" << Stride
+                     << " count=" << Count << " of " << CT.str() << "\n";
+        llvm_unreachable("illegal range insertion");
+      }
+    }
+    StridedTypeRange R;
+    R.Indices = Seq;
+    R.RangePos = RangePos;
+    R.Stride = Stride;
+    R.Count = Count;
+    R.CT = CT;
+    ranges.push_back(R);
+
+    int start = Seq[RangePos];
+    if (minIndices.size() < Seq.size()) {
+      for (size_t i = minIndices.size(), end = Seq.size(); i < end; ++i)
+        minIndices.push_back(i == RangePos ? start : Seq[i]);
+    }
+    for (size_t i = 0, end = Seq.size(); i < end; ++i) {
+      int v = (i == RangePos) ? start : Seq[i];
+      if (v < minIndices[i])
+        minIndices[i] = v;
+    }
+    return true;
+  }
+
   /// How this TypeTree compares with another
-  bool operator<(const TypeTree &vd) const { return mapping < vd.mapping; }
+  bool operator<(const TypeTree &vd) const {
+    if (mapping != vd.mapping)
+      return mapping < vd.mapping;
+    if (ranges.size() != vd.ranges.size())
+      return ranges.size() < vd.ranges.size();
+    for (size_t i = 0; i < ranges.size(); ++i) {
+      if (ranges[i].Indices != vd.ranges[i].Indices)
+        return ranges[i].Indices < vd.ranges[i].Indices;
+      if (ranges[i].RangePos != vd.ranges[i].RangePos)
+        return ranges[i].RangePos < vd.ranges[i].RangePos;
+      if (ranges[i].Stride != vd.ranges[i].Stride)
+        return ranges[i].Stride < vd.ranges[i].Stride;
+      if (ranges[i].Count != vd.ranges[i].Count)
+        return ranges[i].Count < vd.ranges[i].Count;
+      if (ranges[i].CT != vd.ranges[i].CT)
+        return ranges[i].CT < vd.ranges[i].CT;
+    }
+    return false;
+  }
 
   /// Whether this TypeTree contains any information
   bool isKnown() const {
@@ -438,7 +636,7 @@ public:
       assert(pair.second.isKnown());
     }
 #endif
-    return mapping.size() != 0;
+    return mapping.size() != 0 || ranges.size() != 0;
   }
 
   /// Whether this TypeTree knows any non-pointer information
@@ -454,7 +652,7 @@ public:
       }
       return true;
     }
-    return false;
+    return !ranges.empty();
   }
 
   /// Select only the Integer ConcreteTypes
@@ -508,6 +706,14 @@ public:
       Result.mapping.insert(
           std::pair<const std::vector<int>, ConcreteType>(Vec, pair.second));
     }
+    for (const auto &R : ranges) {
+      if (R.Indices.size() == EnzymeMaxTypeDepth)
+        continue;
+      StridedTypeRange Next = R;
+      Next.Indices.insert(Next.Indices.begin(), Off);
+      Next.RangePos = R.RangePos + 1;
+      Result.ranges.push_back(Next);
+    }
     return Result;
   }
 
@@ -540,6 +746,33 @@ public:
         // on the orIn operation if there is an incompatible
         // merge. The insert operation does not error.
         Result.orIn(next, pair.second);
+      }
+    }
+    for (const auto &R : ranges) {
+      assert(!R.Indices.empty());
+      if (R.RangePos == 0) {
+        // Outermost index is the ranged dimension: keep the range only when it
+        // covers offset 0 (or would via -1, which ranges do not use).
+        if (!R.offsetInRange(0))
+          continue;
+        StridedTypeRange Next = R;
+        Next.Indices.erase(Next.Indices.begin());
+        if (Next.RangePos > 0)
+          Next.RangePos--;
+        // After peeling a ranged outermost index that matched 0, the remaining
+        // path is a concrete (non-range) lookup at depth 0 of the child.
+        if (Next.Indices.empty()) {
+          Result.orIn(std::vector<int>{}, Next.CT);
+        } else if (Next.RangePos >= Next.Indices.size()) {
+          Result.orIn(Next.Indices, Next.CT);
+        } else {
+          Result.ranges.push_back(Next);
+        }
+      } else if (R.Indices[0] == -1 || R.Indices[0] == 0) {
+        StridedTypeRange Next = R;
+        Next.Indices.erase(Next.Indices.begin());
+        Next.RangePos = R.RangePos - 1;
+        Result.ranges.push_back(Next);
       }
     }
 
@@ -1103,6 +1336,67 @@ public:
     // Resize minIndices down if we dropped any higher-depth indices for being
     // out of scope.
     Result.minIndices.resize(maxInsertedDepth);
+
+    // Shift compact strided ranges. Ranges stay compact (no per-element
+    // materialization) and are not discarded by MaxTypeOffset.
+    for (const auto &R : ranges) {
+      if (R.Indices.empty())
+        continue;
+      if (R.RangePos == 0) {
+        int nextStart = R.start();
+        if (nextStart < offset)
+          continue;
+        nextStart -= offset;
+        if (maxSize != -1 && nextStart >= maxSize)
+          continue;
+        // Keep the range only if at least one element remains in-window.
+        int remaining = R.Count;
+        if (maxSize != -1) {
+          // Largest k with start + k*stride < maxSize
+          remaining = (maxSize - nextStart + R.Stride - 1) / R.Stride;
+          if (remaining > R.Count)
+            remaining = R.Count;
+          if (remaining <= 0)
+            continue;
+        }
+        nextStart += addOffset;
+        StridedTypeRange Next = R;
+        Next.Indices[0] = nextStart;
+        Next.Count = remaining;
+        Result.ranges.push_back(Next);
+        if (nextStart < Result.minIndices[0])
+          Result.minIndices[0] = nextStart;
+        if (Next.Indices.size() > maxInsertedDepth)
+          maxInsertedDepth = Next.Indices.size();
+      } else {
+        // Non-outermost ranged dimension: keep if the outermost index shifts
+        // into range, mirroring concrete-map handling.
+        int next0 = R.Indices[0];
+        if (next0 != -1) {
+          if (next0 < offset)
+            continue;
+          next0 -= offset;
+          if (maxSize != -1 && next0 >= maxSize)
+            continue;
+          next0 += addOffset;
+        } else if (addOffset != 0 && maxSize == -1) {
+          next0 = addOffset;
+        } else if (maxSize != -1) {
+          // -1 outermost with finite maxSize would need expansion; keep as-is
+          // with addOffset applied when possible.
+          if (addOffset != 0)
+            next0 = addOffset;
+        }
+        StridedTypeRange Next = R;
+        Next.Indices[0] = next0;
+        Result.ranges.push_back(Next);
+        if (next0 != -1 && next0 < Result.minIndices[0])
+          Result.minIndices[0] = next0;
+        if (Next.Indices.size() > maxInsertedDepth)
+          maxInsertedDepth = Next.Indices.size();
+      }
+    }
+    Result.minIndices.resize(maxInsertedDepth);
     return Result;
   }
 
@@ -1160,7 +1454,19 @@ public:
   }
 
   /// Chceck equality of two TypeTrees
-  bool operator==(const TypeTree &RHS) const { return mapping == RHS.mapping; }
+  bool operator==(const TypeTree &RHS) const {
+    if (mapping != RHS.mapping || ranges.size() != RHS.ranges.size())
+      return false;
+    for (size_t i = 0; i < ranges.size(); ++i) {
+      if (ranges[i].Indices != RHS.ranges[i].Indices ||
+          ranges[i].RangePos != RHS.ranges[i].RangePos ||
+          ranges[i].Stride != RHS.ranges[i].Stride ||
+          ranges[i].Count != RHS.ranges[i].Count ||
+          ranges[i].CT != RHS.ranges[i].CT)
+        return false;
+    }
+    return true;
+  }
 
   /// Set this to another TypeTree, returning if this was changed
   bool operator=(const TypeTree &RHS) {
@@ -1316,6 +1622,26 @@ public:
     for (auto &pair : RHS.mapping) {
       changed |= checkedOrIn(pair.first, pair.second, PointerIntSame, LegalOr);
     }
+    for (const auto &R : RHS.ranges) {
+      bool found = false;
+      for (auto &existing : ranges) {
+        if (existing.Indices == R.Indices && existing.RangePos == R.RangePos &&
+            existing.Stride == R.Stride && existing.Count == R.Count) {
+          found = true;
+          if (existing.CT == R.CT)
+            break;
+          bool sub = existing.CT.checkedOrIn(R.CT, PointerIntSame, LegalOr);
+          if (!LegalOr)
+            return changed;
+          changed |= sub;
+          break;
+        }
+      }
+      if (!found) {
+        ranges.push_back(R);
+        changed = true;
+      }
+    }
     return changed;
   }
 
@@ -1463,6 +1789,29 @@ public:
         out += std::to_string(pair.first[i]);
       }
       out += "]:" + pair.second.str();
+      first = false;
+    }
+    // Emit ranges after concrete mappings, sorted for stability.
+    std::vector<const StridedTypeRange *> ordered;
+    ordered.reserve(ranges.size());
+    for (const auto &R : ranges)
+      ordered.push_back(&R);
+    std::sort(ordered.begin(), ordered.end(),
+              [](const StridedTypeRange *A, const StridedTypeRange *B) {
+                if (A->Indices != B->Indices)
+                  return A->Indices < B->Indices;
+                if (A->RangePos != B->RangePos)
+                  return A->RangePos < B->RangePos;
+                if (A->Stride != B->Stride)
+                  return A->Stride < B->Stride;
+                return A->Count < B->Count;
+              });
+    for (const auto *R : ordered) {
+      if (!first) {
+        out += ", ";
+      }
+      out += R->indexString();
+      out += ":" + R->CT.str();
       first = false;
     }
     out += "}";

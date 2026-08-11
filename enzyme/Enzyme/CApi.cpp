@@ -933,6 +933,18 @@ void EnzymeTypeTreeInsertEq(CTypeTreeRef CTT, const int64_t *indices,
   }
   ((TypeTree *)CTT)->insert(seq, eunwrap(ct, *unwrap(ctx)));
 }
+void EnzymeTypeTreeInsertRangeEq(CTypeTreeRef CTT, const int64_t *indices,
+                                 size_t len, size_t rangePos, int64_t stride,
+                                 int64_t count, CConcreteType ct,
+                                 LLVMContextRef ctx) {
+  std::vector<int> seq;
+  for (size_t i = 0; i < len; i++) {
+    seq.push_back(indices[i]);
+  }
+  ((TypeTree *)CTT)
+      ->insertRange(seq, rangePos, (int)stride, (int)count,
+                    eunwrap(ct, *unwrap(ctx)));
+}
 const char *EnzymeTypeTreeToString(CTypeTreeRef src) {
   std::string tmp = ((TypeTree *)src)->str();
   char *cstr = new char[tmp.length() + 1];
